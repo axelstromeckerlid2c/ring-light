@@ -1,8 +1,10 @@
 /*
- File: Klocktermometer.ino
+ File: ring_light.ino
  Author: Axel Ström Eckerlid
- Date: 2024-02-13
-  Vad gör programmet?
+ Date: 2024-02-28
+ Det här programmet kombinerar en klocka och en termometer med hjälp av en RTC-modul 
+ och en ultraljudssensor för att antingen visa temperaturen som en färggradient eller justera 
+ ljusstyrkan på en Adafruit Neopixel ring light baserat på närhet.
 */
 
 
@@ -16,51 +18,49 @@
 RtcDS3231<TwoWire> Rtc(Wire);
 float temp;
 
+
+//piezo pin
+#define beep 4
+
+--------------------------------------------------------------------------------------------
 // Ultrasonisk Sensor
 const int ECHO_PIN = 7;
 const int TRIG_PIN = 6; 
 
-//(cm)
-const int max_distance = 20;
+const int max_distance = 20; //cm
 const int min_distance = 1.9;
-
 float duration_us, distance_cm;
-
-
+--------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------
 //Ring light
 #define LIGHT_PIN  2
 #define LED_COUNT 24
 
 Adafruit_NeoPixel ring(LED_COUNT, LIGHT_PIN, NEO_RGB + NEO_KHZ800);
 
-String light_mode = "brightness";
-int brightness; //Ring light ljusstyrka (0-255)
-String current_color = "RED";
-
 int r = 255;
 int g;
 int b;
+
+String light_mode = "brightness";
+int brightness; //Ring light ljusstyrka (0-255)
+String current_color = "RED";
 
 //Färgtemperatur skala (1 - 1000)
 float value;
 float minimum = 1;
 float maximum = 1000;
-
-
-//Knappen
+--------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------
+//Knapp
 const int BUTTON_PIN = 11;
-int hold_ms = 1000; //Long press button time (milliseconds)
-
-unsigned long press_duration = 0; //Knapp nedtryckt räknare
-
-
-//piezo pin
-#define beep 4
-
-
+int hold_ms = 1000; //Tid för långt knapptryck(millisekunder)
+unsigned long press_duration = 0; //Tilldelas millis() i void loop
+--------------------------------------------------------------------------------------------
 
 void setup() {
   Serial.begin (9600);
+  Wire.begin();
 
   //Bestämmer PINMODE
   pinMode(TRIG_PIN, OUTPUT);
@@ -71,8 +71,6 @@ void setup() {
   ring.begin();
   ring.show();
   ring.setBrightness(255);
-
-  Wire.begin();
 }
 
 void loop() {
@@ -82,7 +80,6 @@ void loop() {
 
   brightness = map(distance_cm, min_distance, max_distance, 1, 255); //Beräknar brightness på skala från distans
 
-
   //Då knappen är nedtryckt stannar resten av programmet (för att sluta uppdatera "press_duration").
   press_duration = millis();
   while ((digitalRead(BUTTON_PIN) == 1)) {
@@ -91,10 +88,9 @@ void loop() {
   //kallar på funktioner
   toggle_button();
   light_show();
+  buzzer();
 
   ring.show(); //Uppdaterar ring light
-
-  buzzer();
 
   delay(50);
 }
@@ -119,7 +115,7 @@ void toggle_button() {
 }
 
 /*
-  
+  Bestämmer ljusstyrka samt färg på ring light (efter "light_mode", "distance_cm" eller "temp").
   returnerar: void
 */
 void light_show() {
@@ -138,11 +134,11 @@ void light_show() {
     else if (temp > 15) {
       value = map(temp, 15, 60, 530, 700);
     }
-    else {
+    else { //Då "temp" < 0
       value = 1;
     }
 
-    convert_to_rgb(minimum, maximum, value, r, g, b);
+    convert_to_rgb(minimum, maximum, value, r, g, b); //Kallar på funktion för att bestämma r, g och b för färgtemperatur
 
     for (int i = 0; i < LED_COUNT; i++) {
       ring.setPixelColor(i, g, r, b);
@@ -150,6 +146,10 @@ void light_show() {
   }
 }
 
+/*
+  Ändrar färg på ring light
+  returnerar: void
+*/
 void change_color() {
   r = 0;
   g = 0;
@@ -173,7 +173,7 @@ void change_color() {
 
 
 /*
-  
+  Sätter färg och ljusstyrka på ring light
   returnerar: void
 */
 void light_set() {
@@ -194,7 +194,7 @@ void light_off() {
 
 
 /*
-  Kör ultrasonisk sensor och beräknar distans
+  Kör ultrasonisk sensor och beräknar "distance_cm".
   returnerar: void
 */
 void us_sensor() {
@@ -247,6 +247,10 @@ void updateRTC() {
   temp = rtcTemp.AsFloatDegC();
 }
 
+/*
+  Piezoelement skickar ljudsignal av olika intensitet beroende på "distance_cm".
+  returnerar: void
+*/
 void buzzer() {
     if ((distance_cm < max_distance) && (distance_cm != 0)) {
     tone(beep, (2000/distance_cm));
