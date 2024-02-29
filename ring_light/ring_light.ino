@@ -2,7 +2,7 @@
  File: ring_light.ino
  Author: Axel Ström Eckerlid
  Date: 2024-02-28
- Det här programmet kombinerar en klocka och en termometer med hjälp av en RTC-modul 
+ Det här programmet använder en RTC-modul för temperatur
  och en ultraljudssensor för att antingen visa temperaturen som en färggradient eller justera 
  ljusstyrkan på en Adafruit Neopixel ring light baserat på närhet.
 */
